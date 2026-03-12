@@ -1,83 +1,99 @@
 using UnityEngine;
-using System.Collections;
 
 public class FallingPlatform : MonoBehaviour
 {
-    [Header("Configuración")]
-    [SerializeField] private float tiempoEspera = 1.0f; // Tiempo antes de caer 
-    [SerializeField] private float velocidadCaida = 5.0f; // Velocidad de descenso [cite: 86]
-    [SerializeField] private float alturaMinima = -10.0f; // Altura donde se detiene [cite: 87]
-    [SerializeField] private float tiempoAbajo = 2.0f; // Tiempo que espera antes de subir [cite: 89]
+    [Header("Detection")]
+    [SerializeField] private string playerTag = "Player";
+    [SerializeField] private float topMargin = 0.15f; 
 
-    private Vector3 posicionInicial; // Guarda la posición original [cite: 90]
-    private float tiempoActivacion = -1f; // Para calcular el paso del tiempo con Time.time 
-    
-    // Estados de la plataforma
-    private bool estaCayendo = false;
-    private bool estaRegresando = false;
+    [Header("Timing")]
+    [SerializeField] private float delayBeforeFall = 0.75f;
+    [SerializeField] private float waitAtBottom = 0.5f;
+
+    [Header("Movement")]
+    [SerializeField] private float fallSpeed = 2.0f;
+    [SerializeField] private float minY = 0.0f;
+
+    private Vector3 posicionInicial;
+    private Rigidbody rb;
+
     private bool activada = false;
+    private bool cayendo = false;
+    private bool esperandoReset = false;
 
-    void Start()
+    private float tiempoActivacion = 0f;
+    private float tiempoEnFondo = 0f;
+
+    private Collider myCol;
+
+    private void Start()
     {
-        // Guardamos la posición inicial al arrancar [cite: 68]
         posicionInicial = transform.position;
+        rb = GetComponent<Rigidbody>();
+        myCol = GetComponent<Collider>();
+
+        // Evita caída “sola” por físicas
+        rb.useGravity = false;
+        rb.isKinematic = true;
     }
 
-    void Update()
+    private void FixedUpdate()
     {
-        // 1. Lógica de la cuenta atrás [cite: 83, 85]
-        if (activada && !estaCayendo && !estaRegresando)
+        if (activada && !cayendo && !esperandoReset)
         {
-            if (Time.time >= tiempoActivacion + tiempoEspera)
-            {
-                estaCayendo = true;
-            }
+            if (Time.time >= tiempoActivacion + delayBeforeFall)
+                cayendo = true;
         }
 
-        // 2. Lógica de caída constante [cite: 86]
-        if (estaCayendo)
+        if (cayendo)
         {
-            transform.position += Vector3.down * velocidadCaida * Time.deltaTime;
+            Vector3 posActual = rb.position;
+            Vector3 nuevaPos = posActual + Vector3.down * fallSpeed * Time.fixedDeltaTime;
 
-            // Comprobar si ha llegado al límite [cite: 87]
-            if (transform.position.y <= alturaMinima)
+            if (nuevaPos.y <= minY)
             {
-                estaCayendo = false;
-                StartCoroutine(EsperarYRegresar()); // [cite: 89]
+                nuevaPos = new Vector3(nuevaPos.x, minY, nuevaPos.z);
+                rb.MovePosition(nuevaPos);
+
+                cayendo = false;
+                esperandoReset = true;
+                tiempoEnFondo = Time.time;
+                return;
             }
+
+            rb.MovePosition(nuevaPos);
         }
+
+        if (esperandoReset)
+        {
+            if (Time.time >= tiempoEnFondo + waitAtBottom)
+                ResetearPlataforma();
+        }
+    }
+
+    private void ResetearPlataforma()
+    {
+        rb.MovePosition(posicionInicial);
+        activada = false;
+        cayendo = false;
+        esperandoReset = false;
+        tiempoActivacion = 0f;
+        tiempoEnFondo = 0f;
     }
 
     private void OnCollisionEnter(Collision collision)
     {
-    // Detectar si el jugador pisa la plataforma 
-        if (collision.gameObject.CompareTag("Player") && !activada && !estaRegresando)
-        {
-            // Opcional: Solo activar si el jugador toca desde arriba 
-            if (collision.contacts[0].normal.y < -0.5f)
-            {
-                activada = true;
-                tiempoActivacion = Time.time; // Registra el momento del contacto 
-            }
-        }
-    }
+        if (activada) return;
+        if (!collision.gameObject.CompareTag(playerTag)) return;
 
-    IEnumerator EsperarYRegresar()
-    {
-        yield return new WaitForSeconds(tiempoAbajo); // Esperar un breve tiempo [cite: 89]
         
-        estaRegresando = true;
+        float platformTopY = myCol.bounds.max.y;
+        float playerBottomY = collision.collider.bounds.min.y;
 
-        // Volver a la posición inicial suavemente [cite: 90]
-        while (Vector3.Distance(transform.position, posicionInicial) > 0.01f)
-        {
-            transform.position = Vector3.MoveTowards(transform.position, posicionInicial, velocidadCaida * Time.deltaTime);
-            yield return null;
-        }
+        bool playerOnTop = playerBottomY >= (platformTopY - topMargin);
+        if (!playerOnTop) return;
 
-        // Resetear todo para que vuelva a funcionar [cite: 91]
-        transform.position = posicionInicial;
-        activada = false;
-        estaRegresando = false;
+        activada = true;
+        tiempoActivacion = Time.time;
     }
 }

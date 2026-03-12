@@ -20,16 +20,7 @@ public class PlayerControler : MonoBehaviour
     private bool hasDoubleJumped = false;
     private Vector3 movement;
 
-    private void Start()
-    {
-        rb = GetComponent<Rigidbody>();
-        if (cameraTransform == null && Camera.main != null)
-        {
-            cameraTransform = Camera.main.transform;
-        }
-        currentSpeed = walkSpeed;
-        rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
-    }
+  
 
     private void Update()
     {
@@ -41,16 +32,16 @@ public class PlayerControler : MonoBehaviour
         {
             currentSpeed = walkSpeed; // Vuelve a la velocidad normal
         }
-        // Movimiento (mejor con rb.MovePosition en FixedUpdate, pero mantengo tu estilo)
+        
         float horizontal = Input.GetAxis("Horizontal");
         float vertical = Input.GetAxis("Vertical");
 
         
 
-       // 1. Obtener las direcciones de la cámara
+       
         Vector3 camForward = cameraTransform.forward;
         Vector3 camRight = cameraTransform.right;
-        camForward.y = 0f; // Ignorar componente vertical para movimiento horizontal
+        camForward.y = 0f; 
         camRight.y = 0f;
         camForward.Normalize();
         camRight.Normalize();
@@ -59,7 +50,7 @@ public class PlayerControler : MonoBehaviour
         // Salto
         if (anim != null)
         {
-            // Enviamos la velocidad al parámetro "speed" (usa el nombre exacto de tu Animator)
+            
             float speedValue = movement.magnitude * (currentSpeed / walkSpeed);
             anim.SetFloat("speed", speedValue);
             anim.SetBool("isGrounded", isGrounded);
@@ -81,8 +72,8 @@ public class PlayerControler : MonoBehaviour
 
     private void Jump()
     {
-        // Opcional pero recomendable: resetear velocidad vertical para que el salto sea consistente
-        Vector3 v = rb.linearVelocity; // Si tu Unity no tiene linearVelocity, cambia por rb.velocity
+       
+        Vector3 v = rb.linearVelocity; 
         v.y = 0f;
         rb.linearVelocity = v;
 
@@ -101,7 +92,7 @@ public class PlayerControler : MonoBehaviour
 
     private void OnCollisionStay(Collision collision)
     {
-        // Esto ayuda si el jugador cae y se queda “pegado” en contacto con el suelo
+      
         if (collision.gameObject.CompareTag("Ground"))
         {
             isGrounded = true;
@@ -115,4 +106,38 @@ public class PlayerControler : MonoBehaviour
             isGrounded = false;
         }
     }
+  
+private Vector3 posicionRespawn;
+
+private void Start()
+{
+     rb = GetComponent<Rigidbody>();
+        if (cameraTransform == null && Camera.main != null)
+        {
+            cameraTransform = Camera.main.transform;
+        }
+        currentSpeed = walkSpeed;
+        rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
+    posicionRespawn = transform.position; 
+    
+    rb = GetComponent<Rigidbody>();
+    if (cameraTransform == null && Camera.main != null)
+    {
+        cameraTransform = Camera.main.transform;
+    }
+    currentSpeed = walkSpeed;
+    rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
+}
+
+
+public void Respawn() 
+{
+    transform.position = posicionRespawn; 
+    
+    if (rb != null)
+    {
+        rb.linearVelocity = Vector3.zero; 
+        rb.angularVelocity = Vector3.zero; 
+    }
+}
 }
